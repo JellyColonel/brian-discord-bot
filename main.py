@@ -1,11 +1,12 @@
-# majestic-bot/main.py
+# brian-discord-bot/main.py
 
 import os
 import disnake
 from disnake.ext import commands
 import config
-import logging
 from utils.logger import setup_logger
+import asyncio
+from data.database import init_db
 
 # Set up logging
 logger = setup_logger()
@@ -23,6 +24,14 @@ def load_extensions(bot):
                 logger.error(f"Failed to load extension {filename}: {e}")
     logger.info(f"Loaded {count} extensions")
 
+async def startup():
+    """Initialize database before starting the bot"""
+    try:
+        await init_db()
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
+
 def main():
     """Initialize and run the Discord bot"""
     # Set up intents (permissions for your bot)
@@ -32,7 +41,6 @@ def main():
     intents.messages = True
     
     # Define recommended permissions for bot functionality
-    # This helps when generating the bot invite link
     permissions = disnake.Permissions(
         manage_messages=True,  # For purge command
         kick_members=True,     # For kick command
@@ -60,6 +68,14 @@ def main():
         logger.info(f"Connected to {len(bot.guilds)} guild(s)")
         logger.info(f"Bot is serving {len(bot.users)} user(s)")
         
+        # Initialize database after bot is ready
+        try:
+            loop = asyncio.get_event_loop()
+            await startup()
+        except Exception as e:
+            logger.error(f"Error during startup: {e}")
+            return
+        
         # Log the invite link with proper permissions
         invite_url = disnake.utils.oauth_url(
             bot.user.id,
@@ -68,7 +84,7 @@ def main():
         )
         logger.info(f"Bot invite link: {invite_url}")
         
-        # Set bot activity status - UPDATED to show /help instead of !help
+        # Set bot activity status
         await bot.change_presence(
             activity=disnake.Activity(
                 type=disnake.ActivityType.listening, 
@@ -139,7 +155,6 @@ def main():
                 inline=False
             )
         
-        # UPDATED footer to reference slash commands instead of prefix commands
         embed.set_footer(text="Use /help <module> for more info on specific commands")
         await inter.response.send_message(embed=embed, ephemeral=True)
     

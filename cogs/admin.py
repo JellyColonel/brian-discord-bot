@@ -1,9 +1,8 @@
-# majestic-bot/cogs/admin.py
+# brian-discord-bot/cogs/admin.py
 
 import disnake
 from disnake.ext import commands
 import logging
-import asyncio
 import config
 
 logger = logging.getLogger('discord_bot')

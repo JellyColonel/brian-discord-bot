@@ -1,2 +1,1 @@
-# majestic-bot/cogs/__init__.py
-
+# brian-discord-bot/cogs/__init__.py

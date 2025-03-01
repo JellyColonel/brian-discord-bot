@@ -1,4 +1,4 @@
-# majestic-bot/config.py
+# brian-discord-bot/config.py
 
 import os
 from dotenv import load_dotenv

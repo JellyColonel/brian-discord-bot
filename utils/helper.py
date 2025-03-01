@@ -1,1 +1,1 @@
-# majestic-bot/utils/helper.py
+# brian-discord-bot/utils/helper.py

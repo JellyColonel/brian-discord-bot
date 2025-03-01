@@ -1,4 +1,4 @@
-# majestic-bot/utils/logger.py
+# brian-discord-bot/utils/logger.py
 
 import logging
 import os

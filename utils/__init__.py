@@ -1,1 +1,1 @@
-# majestic-bot/utils/__init__.py
+# brian-discord-bot/utils/__init__.py
