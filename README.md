@@ -10,6 +10,18 @@ A highly modular Discord bot designed for single-server use with easy extensibil
 - **Comprehensive Logging**: Both to console and file
 - **Admin Commands**: Moderation tools included out of the box
 
+## Required Bot Permissions
+
+For full functionality, the bot requires these permissions:
+
+- **Manage Messages** - For the `/purge` command to delete messages
+- **Kick Members** - For the `/kick` command
+- **Ban Members** - For the `/ban` command
+- **Moderate Members** - For the `/timeout` command
+- **Send Messages & Embed Links** - For basic functionality
+- **Read Message History** - For various commands
+- **Add Reactions** - For potential reaction features
+
 ## Setup
 
 1. **Clone this repository**:
@@ -43,10 +55,24 @@ A highly modular Discord bot designed for single-server use with easy extensibil
    - Fill in your Discord bot token and server ID
    - Customize other settings as needed
 
-5. **Run the bot**:
+5. **Add the bot to your server**:
+
+   - Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+   - Select your application/bot
+   - Go to OAuth2 > URL Generator
+   - Select scopes: `bot` and `applications.commands`
+   - Select the permissions listed in the "Required Bot Permissions" section above
+   - Use the generated URL to add the bot to your server
+
+6. **Run the bot**:
+
    ```bash
    python main.py
    ```
+
+7. **Verify permissions**:
+   - After adding the bot, check that it has all required permissions
+   - If using commands like `/purge` in specific channels, ensure the bot has "Manage Messages" permission in those channels
 
 ## Creating New Extensions
 
@@ -114,8 +140,7 @@ my_discord_bot/
 
 - **Bot doesn't start**: Check your `.env` file and ensure your token is correct
 - **Slash commands not showing up**: Make sure your SERVER_ID is correct
+- **Permission errors**: Check that the bot has the necessary permissions for each command
+  - For `/purge` errors, ensure the bot has "Manage Messages" permission
+  - For `/kick` or `/ban` errors, check role hierarchy (bot's role must be higher than target user's)
 - **Command errors**: Check the logs folder for detailed error messages
-
-## Credits
-
-This bot template was created with help

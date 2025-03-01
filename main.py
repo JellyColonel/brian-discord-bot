@@ -31,6 +31,20 @@ def main():
     intents.members = True
     intents.messages = True
     
+    # Define recommended permissions for bot functionality
+    # This helps when generating the bot invite link
+    permissions = disnake.Permissions(
+        manage_messages=True,  # For purge command
+        kick_members=True,     # For kick command
+        ban_members=True,      # For ban command
+        moderate_members=True, # For timeout command
+        send_messages=True,
+        embed_links=True,
+        attach_files=True,
+        read_message_history=True,
+        add_reactions=True
+    )
+    
     # Create a bot instance with command prefix and intents
     bot = commands.Bot(
         command_prefix=config.COMMAND_PREFIX,
@@ -45,6 +59,14 @@ def main():
         logger.info(f"{bot.user.name} has connected to Discord!")
         logger.info(f"Connected to {len(bot.guilds)} guild(s)")
         logger.info(f"Bot is serving {len(bot.users)} user(s)")
+        
+        # Log the invite link with proper permissions
+        invite_url = disnake.utils.oauth_url(
+            bot.user.id,
+            permissions=permissions,
+            scopes=["bot", "applications.commands"]
+        )
+        logger.info(f"Bot invite link: {invite_url}")
         
         # Set bot activity status - UPDATED to show /help instead of !help
         await bot.change_presence(
@@ -89,7 +111,7 @@ def main():
                             inline=False
                         )
                     
-                    return await inter.response.send_message(embed=embed)
+                    return await inter.response.send_message(embed=embed, ephemeral=True)
             
             # If we get here, module wasn't found
             return await inter.response.send_message(
@@ -119,7 +141,7 @@ def main():
         
         # UPDATED footer to reference slash commands instead of prefix commands
         embed.set_footer(text="Use /help <module> for more info on specific commands")
-        await inter.response.send_message(embed=embed)
+        await inter.response.send_message(embed=embed, ephemeral=True)
     
     # Connection error handling
     @bot.event
