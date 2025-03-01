@@ -15,9 +15,11 @@ OWNER_IDS = [int(id.strip()) for id in os.getenv('OWNER_IDS', '0').split(',')]
 
 # Make sure critical values are set
 if not BOT_TOKEN:
-    raise ValueError("No Discord token found. Please add DISCORD_TOKEN to your .env file.")
+    raise ValueError(
+        "No Discord token found. Please add DISCORD_TOKEN to your .env file.")
 if SERVER_ID == 0:
-    raise ValueError("No Server ID found. Please add SERVER_ID to your .env file.")
+    raise ValueError(
+        "No Server ID found. Please add SERVER_ID to your .env file.")
 
 # Appearance
 EMBED_COLOR = disnake.Color.blurple()  # Default embed color
@@ -29,11 +31,9 @@ INFO_COLOR = disnake.Color.blue()
 FEATURES = {
     'WELCOME_MESSAGES': os.getenv('FEATURE_WELCOME_MESSAGES', 'True').lower() == 'true',
     'LOGGING': os.getenv('FEATURE_LOGGING', 'True').lower() == 'true',
-    'AUTO_ROLES': os.getenv('FEATURE_AUTO_ROLES', 'False').lower() == 'true',
     # Add more features as needed
 }
 
 # Configure specific features
 WELCOME_CHANNEL_ID = int(os.getenv('WELCOME_CHANNEL_ID', '0'))
 LOG_CHANNEL_ID = int(os.getenv('LOG_CHANNEL_ID', '0'))
-DEFAULT_ROLE_ID = int(os.getenv('DEFAULT_ROLE_ID', '0'))
