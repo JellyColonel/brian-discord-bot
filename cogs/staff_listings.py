@@ -335,8 +335,51 @@ class StaffListings(commands.Cog):
         return ""
 
     def format_member_display(self, member: disnake.Member) -> str:
-        """Format member display with mention, name and ID"""
-        return f"{member.mention} - {member.display_name}"
+        """
+        Format member display with mention and standardized name format.
+        Converts any display name format to: FirstName SecondName | StaticID
+        """
+        display_name = member.display_name
+        name_parts = []
+        id_part = ""
+
+        # Define possible separators
+        separators = ['|', '/', '[', ']']
+
+        # Split by separators to get individual parts
+        parts = re.split(r'[\|\/\[\]]', display_name)
+        parts = [p.strip() for p in parts if p.strip()]
+
+        if len(parts) >= 2:
+            # Last part is typically the ID (with or without #)
+            id_part = parts[-1]
+
+            # Check if ID has a # prefix or is just numeric
+            if id_part.startswith('#') or id_part.isdigit():
+                # Ensure ID has a # if it doesn't already
+                if not id_part.startswith('#'):
+                    id_part = f"#{id_part}"
+
+                # Everything else is considered part of the name (except first part which is PREFIX)
+                name_parts = parts[1:-1] if len(parts) > 2 else [parts[0]]
+
+                # Join name parts with spaces
+                name = " ".join(name_parts)
+
+                # Format as "FirstName SecondName | StaticID"
+                formatted_name = f"{name} | {id_part}"
+
+                return f"{member.mention} - {formatted_name}"
+
+        # Fallback: Just remove prefix if possible
+        for sep in separators:
+            if sep in display_name:
+                parts = display_name.split(sep, 1)
+                if len(parts) > 1:
+                    return f"{member.mention} - {parts[1].strip()}"
+
+        # Final fallback if all else fails
+        return f"{member.mention} - {display_name}"
 
     async def send_high_staff_embeds(self, channel, guild):
         """Send embeds for high staff positions"""
