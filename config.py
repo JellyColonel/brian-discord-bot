@@ -37,3 +37,63 @@ FEATURES = {
 # Configure specific features
 WELCOME_CHANNEL_ID = int(os.getenv('WELCOME_CHANNEL_ID', '0'))
 LOG_CHANNEL_ID = int(os.getenv('LOG_CHANNEL_ID', '0'))
+
+# Staff listings configuration
+HIGH_STAFF_LISTING_CHANNEL_ID = int(
+    os.getenv('HIGH_STAFF_LISTING_CHANNEL_ID', '0'))
+
+# Role IDs for staff listings
+ROLE_IDS = {
+    'CHIEF_DOCTOR': int(os.getenv('ROLE_CHIEF_DOCTOR', '0')),
+    'DEPUTY_CHIEF_DOCTOR': int(os.getenv('ROLE_DEPUTY_CHIEF_DOCTOR', '0')),
+    'HOSPITAL_MANAGER': int(os.getenv('ROLE_HOSPITAL_MANAGER', '0')),
+    'MANAGEMENT_STAFF': int(os.getenv('ROLE_MANAGEMENT_STAFF', '0')),
+    'HAD_DEPARTMENT': int(os.getenv('ROLE_HAD_DEPARTMENT', '0')),
+    'PM_DEPARTMENT': int(os.getenv('ROLE_PM_DEPARTMENT', '0')),
+    'DI_DEPARTMENT': int(os.getenv('ROLE_DI_DEPARTMENT', '0')),
+    'PSED_DEPARTMENT': int(os.getenv('ROLE_PSED_DEPARTMENT', '0')),
+    'FD_DEPARTMENT': int(os.getenv('ROLE_FD_DEPARTMENT', '0')),
+}
+
+# Hospital managers' IDs (hardcoded)
+HOSPITAL_MANAGERS = {
+    'EAST_LOS_SANTOS': 741968124529606657,  # Anastasia Heavenly
+    'SANDY_SHORES': 421692991493636096,     # Ben Cole
+    'THE_BAY_CARE': 483906743567646722,     # Yaya Revo
+}
+
+# Department information - order matters for display
+DEPARTMENTS = [
+    {
+        'short': 'HAD',
+        'full': 'Hospital Administration Department',
+        'channel_id': int(os.getenv('CHANNEL_HAD_DEPARTMENT', '0'))
+    },
+    {
+        'short': 'PM',
+        'full': 'Paramedic',
+        'channel_id': int(os.getenv('CHANNEL_PM_DEPARTMENT', '0'))
+    },
+    {
+        'short': 'DI',
+        'full': 'Department of Internship',
+        'channel_id': int(os.getenv('CHANNEL_DI_DEPARTMENT', '0'))
+    },
+    {
+        'short': 'PSED',
+        'full': 'Psychological And Sanitary Epidemiological Department',
+        'channel_id': int(os.getenv('CHANNEL_PSED_DEPARTMENT', '0'))
+    },
+    {
+        'short': 'FD',
+        'full': 'Fire Department',
+        'channel_id': int(os.getenv('CHANNEL_FD_DEPARTMENT', '0'))
+    },
+]
+
+# Colors for department embeds
+EMBED_COLORS = {
+    'DEPARTMENT_CURATOR': 0x1abc9c,
+    'DEPARTMENT_HEAD': 0x9b59b6,
+    'DEPARTMENT_DEPUTY': 0x9b59b6,
+}
