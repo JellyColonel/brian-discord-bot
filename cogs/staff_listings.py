@@ -145,10 +145,16 @@ class StaffListings(commands.Cog):
             logger.warning(f"No department curator found for {dept_short}")
             return None
 
+        # Get management role for color
+        management_role_id = config.ROLE_IDS.get('MANAGEMENT_STAFF')
+        management_role = guild.get_role(
+            management_role_id) if management_role_id else None
+        embed_color = management_role.color if management_role else disnake.Color.blurple()
+
         embed = disnake.Embed(
             title=f"Состав {dept_full}",
             description=f"### Заведующий {dept_short}\n{self.format_member_display(dept_curator)}",
-            color=config.EMBED_COLORS['DEPARTMENT_CURATOR']
+            color=embed_color
         )
 
         return embed
@@ -173,10 +179,16 @@ class StaffListings(commands.Cog):
             logger.warning(f"No department head found for {dept_short}")
             return None
 
+        # Get high staff role for color
+        high_staff_role_id = config.ROLE_IDS.get('HIGH_STAFF')
+        high_staff_role = guild.get_role(
+            high_staff_role_id) if high_staff_role_id else None
+        embed_color = high_staff_role.color if high_staff_role else disnake.Color.blurple()
+
         embed = disnake.Embed(
             title=f"Начальник {dept_short}",
             description=f"{self.format_member_display(head)}",
-            color=config.EMBED_COLORS['DEPARTMENT_HEAD']
+            color=embed_color
         )
 
         return embed
@@ -206,10 +218,16 @@ class StaffListings(commands.Cog):
         for i, deputy in enumerate(deputies, start=1):
             description += f"{i}. {self.format_member_display(deputy)}\n"
 
+        # Get high staff role for color (same as department head)
+        high_staff_role_id = config.ROLE_IDS.get('HIGH_STAFF')
+        high_staff_role = guild.get_role(
+            high_staff_role_id) if high_staff_role_id else None
+        embed_color = high_staff_role.color if high_staff_role else disnake.Color.blurple()
+
         embed = disnake.Embed(
             title=f"Заместители начальника {dept_short}",
             description=description,
-            color=config.EMBED_COLORS['DEPARTMENT_DEPUTY']
+            color=embed_color
         )
 
         return embed

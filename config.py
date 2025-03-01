@@ -48,6 +48,7 @@ ROLE_IDS = {
     'DEPUTY_CHIEF_DOCTOR': int(os.getenv('ROLE_DEPUTY_CHIEF_DOCTOR', '0')),
     'HOSPITAL_MANAGER': int(os.getenv('ROLE_HOSPITAL_MANAGER', '0')),
     'MANAGEMENT_STAFF': int(os.getenv('ROLE_MANAGEMENT_STAFF', '0')),
+    'HIGH_STAFF': int(os.getenv('ROLE_HIGH_STAFF', '0')),  # Add this line
     'HAD_DEPARTMENT': int(os.getenv('ROLE_HAD_DEPARTMENT', '0')),
     'PM_DEPARTMENT': int(os.getenv('ROLE_PM_DEPARTMENT', '0')),
     'DI_DEPARTMENT': int(os.getenv('ROLE_DI_DEPARTMENT', '0')),
@@ -90,10 +91,3 @@ DEPARTMENTS = [
         'channel_id': int(os.getenv('CHANNEL_FD_DEPARTMENT', '0'))
     },
 ]
-
-# Colors for department embeds
-EMBED_COLORS = {
-    'DEPARTMENT_CURATOR': 0x1abc9c,
-    'DEPARTMENT_HEAD': 0x9b59b6,
-    'DEPARTMENT_DEPUTY': 0x9b59b6,
-}
