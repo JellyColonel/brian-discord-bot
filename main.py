@@ -46,11 +46,11 @@ def main():
         logger.info(f"Connected to {len(bot.guilds)} guild(s)")
         logger.info(f"Bot is serving {len(bot.users)} user(s)")
         
-        # Set bot activity status
+        # Set bot activity status - UPDATED to show /help instead of !help
         await bot.change_presence(
             activity=disnake.Activity(
                 type=disnake.ActivityType.listening, 
-                name=f"{config.COMMAND_PREFIX}help"
+                name="/help"
             )
         )
     
@@ -117,7 +117,8 @@ def main():
                 inline=False
             )
         
-        embed.set_footer(text=f"Type {config.COMMAND_PREFIX}help <command> for more info on a command")
+        # UPDATED footer to reference slash commands instead of prefix commands
+        embed.set_footer(text="Use /help <module> for more info on specific commands")
         await inter.response.send_message(embed=embed)
     
     # Connection error handling
