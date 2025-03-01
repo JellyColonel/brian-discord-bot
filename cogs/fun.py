@@ -1,0 +1,1 @@
+# majestic-bot/cogs/fun.py
