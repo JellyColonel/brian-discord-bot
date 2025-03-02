@@ -6,7 +6,7 @@ import logging
 import config
 import re
 import asyncio
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 import datetime
 
 logger = logging.getLogger('discord_bot')
@@ -20,6 +20,7 @@ class StaffListings(commands.Cog):
         self.update_staff_listings.start()
         self.staff_role_ids = set(config.ROLE_IDS.values())
         self.update_lock = asyncio.Lock()  # Lock to prevent simultaneous updates
+        self.permission_errors = set()  # Store channels with permission errors
 
     def cog_unload(self):
         self.update_staff_listings.cancel()
@@ -35,13 +36,53 @@ class StaffListings(commands.Cog):
             logger.error("Could not find guild for staff listings update")
             return
 
+        # Clear previous permission errors
+        self.permission_errors.clear()
+
         # Update high staff listings
         await self.update_high_staff_listings(guild)
 
         # Update department-specific listings
         await self.update_department_listings(guild)
 
-        logger.info("Staff listings updated successfully")
+        # Log any permission errors
+        if self.permission_errors:
+            # Map channel IDs to names for better logging
+            channel_names = {}
+            for channel_id in self.permission_errors:
+                channel = guild.get_channel(channel_id)
+                if channel:
+                    channel_names[channel_id] = channel.name
+
+            # Log with consolidated format
+            error_channels_text = ", ".join([
+                f"{get_dept_for_channel(channel_id)}: #{channel_names.get(channel_id, str(channel_id))}"
+                for channel_id in self.permission_errors
+            ])
+            logger.warning(
+                f"Staff listings update: Missing permissions in channels: {error_channels_text}")
+
+            # Try to notify in log channel - only if we haven't already tried
+            if config.FEATURES['LOGGING'] and config.LOG_CHANNEL_ID:
+                try:
+                    log_channel = guild.get_channel(config.LOG_CHANNEL_ID)
+                    if log_channel and log_channel.id not in self.permission_errors:
+                        # Use channel mentions in the Discord message, better for admins
+                        channel_mentions = ", ".join(
+                            [f"<#{channel_id}>" for channel_id in self.permission_errors])
+                        await log_channel.send(
+                            f"⚠️ Staff listings could not be updated in some channels due to missing permissions: {channel_mentions}\n"
+                            f"Please ensure the bot has the following permissions in these channels:\n"
+                            f"- View Channel\n"
+                            f"- Read Message History\n"
+                            f"- Send Messages\n"
+                            f"- Manage Messages (to clean up old listings)"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Could not send permission error notification: {e}")
+        else:
+            logger.info("Staff listings updated successfully")
 
     async def update_high_staff_listings(self, guild):
         """Update the high staff listings channel"""
@@ -62,6 +103,9 @@ class StaffListings(commands.Cog):
             await self.send_department_embeds(channel, guild)
 
             logger.info("High staff listings updated successfully")
+        except disnake.Forbidden:
+            # Just add to permission_errors, we'll log everything at once
+            self.permission_errors.add(channel_id)
         except Exception as e:
             logger.error(
                 f"Error updating high staff listings: {e}", exc_info=True)
@@ -91,6 +135,9 @@ class StaffListings(commands.Cog):
 
                 logger.info(
                     f"{dept['short']} department listings updated successfully")
+            except disnake.Forbidden:
+                # Just add to permission_errors, we'll log everything at once
+                self.permission_errors.add(channel_id)
             except Exception as e:
                 logger.error(
                     f"Error updating {dept['short']} department listings: {e}", exc_info=True)
@@ -317,9 +364,13 @@ class StaffListings(commands.Cog):
                 await message.delete()
                 await asyncio.sleep(0.5)  # Delay to avoid rate limits
 
+        except disnake.Forbidden:
+            # Re-raise the exception to be caught by the calling method
+            raise
         except Exception as e:
             logger.error(
                 f"Error clearing staff listings channel: {e}", exc_info=True)
+            raise
 
     def extract_id(self, member: disnake.Member) -> str:
         """Extract employee ID from member display name"""
@@ -335,51 +386,8 @@ class StaffListings(commands.Cog):
         return ""
 
     def format_member_display(self, member: disnake.Member) -> str:
-        """
-        Format member display with mention and standardized name format.
-        Converts any display name format to: FirstName SecondName | StaticID
-        """
-        display_name = member.display_name
-        name_parts = []
-        id_part = ""
-
-        # Define possible separators
-        separators = ['|', '/', '[', ']']
-
-        # Split by separators to get individual parts
-        parts = re.split(r'[\|\/\[\]]', display_name)
-        parts = [p.strip() for p in parts if p.strip()]
-
-        if len(parts) >= 2:
-            # Last part is typically the ID (with or without #)
-            id_part = parts[-1]
-
-            # Check if ID has a # prefix or is just numeric
-            if id_part.startswith('#') or id_part.isdigit():
-                # Ensure ID has a # if it doesn't already
-                if not id_part.startswith('#'):
-                    id_part = f"#{id_part}"
-
-                # Everything else is considered part of the name (except first part which is PREFIX)
-                name_parts = parts[1:-1] if len(parts) > 2 else [parts[0]]
-
-                # Join name parts with spaces
-                name = " ".join(name_parts)
-
-                # Format as "FirstName SecondName | StaticID"
-                formatted_name = f"{name} | {id_part}"
-
-                return f"{member.mention} - {formatted_name}"
-
-        # Fallback: Just remove prefix if possible
-        for sep in separators:
-            if sep in display_name:
-                parts = display_name.split(sep, 1)
-                if len(parts) > 1:
-                    return f"{member.mention} - {parts[1].strip()}"
-
-        # Final fallback if all else fails
-        return f"{member.mention} - {display_name}"
+        """Format member display with mention, name and ID"""
+        return f"{member.mention} - {member.display_name}"
 
     async def send_high_staff_embeds(self, channel, guild):
         """Send embeds for high staff positions"""
@@ -548,7 +556,7 @@ class StaffListings(commands.Cog):
             logger.warning("No department heads found")
             return None
 
-        # Sort by department name
+# Sort by department name
         dept_heads.sort(key=lambda x: x[0])
 
         description = ""
@@ -635,13 +643,30 @@ class StaffListings(commands.Cog):
             # Get guild
             guild = inter.guild
 
+            # Clear previous permission errors
+            self.permission_errors.clear()
+
             # Update high staff listings
             await self.update_high_staff_listings(guild)
 
             # Update department-specific listings
             await self.update_department_listings(guild)
 
-            await inter.edit_original_message(content="Staff listings have been updated successfully.")
+            # Check for permission errors
+            if self.permission_errors:
+                # Map channel IDs to names for better display
+                channel_mentions = ", ".join(
+                    [f"<#{channel_id}>" for channel_id in self.permission_errors])
+                await inter.edit_original_message(
+                    content=f"⚠️ Staff listings partially updated. Missing permissions in channels: {channel_mentions}\n\n"
+                    f"Please ensure I have the following permissions in these channels:\n"
+                    f"- View Channel\n"
+                    f"- Read Message History\n"
+                    f"- Send Messages\n"
+                    f"- Manage Messages (to clean up old listings)"
+                )
+            else:
+                await inter.edit_original_message(content="✅ Staff listings have been updated successfully.")
         except Exception as e:
             logger.error(
                 f"Error manually updating staff listings: {e}", exc_info=True)
@@ -682,13 +707,30 @@ class StaffListings(commands.Cog):
             if not channel:
                 return await inter.edit_original_message(content=f"Could not find channel for {department} department.")
 
-            # Clear the channel
-            await self.clear_channel(channel)
+            # Clear previous permission errors
+            self.permission_errors.clear()
 
-            # Send department-specific embeds
-            await self.send_department_specific_embeds(channel, guild, dept_info)
+            try:
+                # Clear the channel
+                await self.clear_channel(channel)
 
-            await inter.edit_original_message(content=f"{department} department staff listing has been updated successfully.")
+                # Send department-specific embeds
+                await self.send_department_specific_embeds(channel, guild, dept_info)
+
+                await inter.edit_original_message(content=f"✅ {department} department staff listing has been updated successfully.")
+            except disnake.Forbidden:
+                await inter.edit_original_message(
+                    content=f"⚠️ Could not update {department} department staff listing due to missing permissions in channel <#{channel_id}>.\n\n"
+                    f"Please ensure I have the following permissions in this channel:\n"
+                    f"- View Channel\n"
+                    f"- Read Message History\n"
+                    f"- Send Messages\n"
+                    f"- Manage Messages (to clean up old listings)"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Error manually updating department staff listing: {e}", exc_info=True)
+                await inter.edit_original_message(content=f"Error updating department staff listing: {str(e)}")
         except Exception as e:
             logger.error(
                 f"Error manually updating department staff listing: {e}", exc_info=True)
@@ -733,13 +775,66 @@ class StaffListings(commands.Cog):
             logger.error("Could not find guild for staff listings update")
             return
 
+        # Clear previous permission errors
+        self.permission_errors.clear()
+
         # Update high staff listings
         await self.update_high_staff_listings(guild)
 
         # Update department-specific listings
         await self.update_department_listings(guild)
 
-        logger.info("Staff listings updated successfully")
+        # Log any permission errors - reuse the same logic as the task
+        if self.permission_errors:
+            # Map channel IDs to names for better logging
+            channel_names = {}
+            for channel_id in self.permission_errors:
+                channel = guild.get_channel(channel_id)
+                if channel:
+                    channel_names[channel_id] = channel.name
+
+            # Log with consolidated format
+            error_channels_text = ", ".join([
+                f"{get_dept_for_channel(channel_id)}: #{channel_names.get(channel_id, str(channel_id))}"
+                for channel_id in self.permission_errors
+            ])
+            logger.warning(
+                f"Staff listings update: Missing permissions in channels: {error_channels_text}")
+
+            # Try to notify in log channel
+            if config.FEATURES['LOGGING'] and config.LOG_CHANNEL_ID:
+                try:
+                    log_channel = guild.get_channel(config.LOG_CHANNEL_ID)
+                    if log_channel and log_channel.id not in self.permission_errors:
+                        # Use channel mentions in the Discord message, better for admins
+                        channel_mentions = ", ".join(
+                            [f"<#{channel_id}>" for channel_id in self.permission_errors])
+                        await log_channel.send(
+                            f"⚠️ Staff listings could not be updated in some channels due to missing permissions: {channel_mentions}\n"
+                            f"Please ensure the bot has the following permissions in these channels:\n"
+                            f"- View Channel\n"
+                            f"- Read Message History\n"
+                            f"- Send Messages\n"
+                            f"- Manage Messages (to clean up old listings)"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Could not send permission error notification: {e}")
+        else:
+            logger.info("Staff listings updated successfully")
+
+
+# Helper function to get department name for a channel ID
+def get_dept_for_channel(channel_id):
+    """Get the department name for a channel ID"""
+    if channel_id == config.HIGH_STAFF_LISTING_CHANNEL_ID:
+        return "HIGH STAFF"
+
+    for dept in config.DEPARTMENTS:
+        if dept.get('channel_id') == channel_id:
+            return dept.get('short', 'UNKNOWN')
+
+    return "UNKNOWN"
 
 
 def setup(bot):
