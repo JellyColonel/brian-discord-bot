@@ -5,7 +5,6 @@ from disnake.ext import commands
 import logging
 import traceback
 import sys
-from typing import Optional
 import config
 
 logger = logging.getLogger('discord_bot')

@@ -6,7 +6,6 @@ import logging
 import config
 import re
 import asyncio
-from typing import Dict, List, Optional, Tuple, Set
 import datetime
 
 logger = logging.getLogger('discord_bot')

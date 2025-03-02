@@ -4,9 +4,7 @@ import disnake
 from disnake.ext import commands
 import logging
 import config
-import os
 import platform
-import time
 from datetime import datetime
 
 logger = logging.getLogger('discord_bot')

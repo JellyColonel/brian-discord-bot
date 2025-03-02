@@ -29,13 +29,11 @@ INFO_COLOR = disnake.Color.blue()
 
 # Bot feature flags - enable/disable features easily
 FEATURES = {
-    'WELCOME_MESSAGES': os.getenv('FEATURE_WELCOME_MESSAGES', 'True').lower() == 'true',
     'LOGGING': os.getenv('FEATURE_LOGGING', 'True').lower() == 'true',
     # Add more features as needed
 }
 
 # Configure specific features
-WELCOME_CHANNEL_ID = int(os.getenv('WELCOME_CHANNEL_ID', '0'))
 LOG_CHANNEL_ID = int(os.getenv('LOG_CHANNEL_ID', '0'))
 
 # Staff listings configuration
