@@ -386,8 +386,48 @@ class StaffListings(commands.Cog):
         return ""
 
     def format_member_display(self, member: disnake.Member) -> str:
-        """Format member display with mention, name and ID"""
-        return f"{member.mention} - {member.display_name}"
+        """Format member display with mention, name and ID, removing the PREFIX"""
+        display_name = member.display_name
+
+        # First, handle the [PREFIX] [Name] [ID] format
+        bracket_pattern = re.compile(
+            r'^\s*\[[^\]]+\]\s*(\[[^\]]+\]\s*\[[^\]]+\])$')
+        bracket_match = bracket_pattern.match(display_name)
+        if bracket_match:
+            clean_name = bracket_match.group(1).strip()
+            return f"{member.mention} - {clean_name}"
+
+        # Handle PREFIX | Name | ID format (or with / as separator)
+        # Find the first separator
+        separators = ['|', '/', '[']
+        first_sep_idx = -1
+        for sep in separators:
+            idx = display_name.find(sep)
+            if idx != -1 and (first_sep_idx == -1 or idx < first_sep_idx):
+                first_sep_idx = idx
+
+        # If we found a separator, try to extract the name and ID part
+        if first_sep_idx != -1:
+            # Everything after the first separator
+            remaining = display_name[first_sep_idx:].strip()
+
+            # Remove the separator itself if it's at the beginning
+            if remaining and remaining[0] in '|/[':
+                remaining = remaining[1:].strip()
+
+            # Check if there are more separators in the remaining text
+            has_more_separators = False
+            for sep in separators:
+                if sep in remaining:
+                    has_more_separators = True
+                    break
+
+            # If there are more separators, this is likely the Name | ID part
+            if has_more_separators:
+                return f"{member.mention} - {remaining}"
+
+        # Fallback if patterns don't match
+        return f"{member.mention} - {display_name}"
 
     async def send_high_staff_embeds(self, channel, guild):
         """Send embeds for high staff positions"""
@@ -545,7 +585,14 @@ class StaffListings(commands.Cog):
         dept_mapping = {dept['short']: dept['full']
                         for dept in config.DEPARTMENTS}
 
+        # Create a set of hospital curator IDs to exclude them
+        hospital_manager_ids = set(config.HOSPITAL_MANAGERS.values())
+
         for member in guild.members:
+            # Skip hospital managers - they should only appear in hospital managers section
+            if member.id in hospital_manager_ids:
+                continue
+
             for role in member.roles:
                 match = pattern.match(role.name)
                 if match:
@@ -556,7 +603,7 @@ class StaffListings(commands.Cog):
             logger.warning("No department heads found")
             return None
 
-# Sort by department name
+        # Sort by department name
         dept_heads.sort(key=lambda x: x[0])
 
         description = ""
@@ -625,9 +672,6 @@ class StaffListings(commands.Cog):
             color=dept_role.color
         )
 
-        # Add the full department name in the footer
-        embed.set_footer(text=f"{dept_full}")
-
         return embed
 
     @commands.slash_command()
@@ -677,8 +721,8 @@ class StaffListings(commands.Cog):
         self,
         inter,
         department: str = commands.Param(
-            description="Department to update (HAD, PM, DI, PSED, FD)",
-            choices=["HAD", "PM", "DI", "PSED", "FD"]
+            description="Department to update (high, HAD, PM, DI, PSED, FD)",
+            choices=["high", "HAD", "PM", "DI", "PSED", "FD"]
         )
     ):
         """Update a specific department's staff listing (Admin only)"""
@@ -691,6 +735,37 @@ class StaffListings(commands.Cog):
         try:
             # Get guild
             guild = inter.guild
+
+            # Handle high staff listings separately
+            if department.lower() == "high":
+                # Get high staff listings channel
+                channel_id = config.HIGH_STAFF_LISTING_CHANNEL_ID
+                if not channel_id:
+                    return await inter.edit_original_message(content="No channel ID configured for high staff listings.")
+
+                channel = guild.get_channel(channel_id)
+                if not channel:
+                    return await inter.edit_original_message(content="Could not find high staff listings channel.")
+
+                try:
+                    # Clear the channel
+                    await self.clear_channel(channel)
+
+                    # Send high staff embeds
+                    await self.send_high_staff_embeds(channel, guild)
+                    await self.send_department_embeds(channel, guild)
+
+                    await inter.edit_original_message(content="✅ High staff listings have been updated successfully.")
+                except disnake.Forbidden:
+                    await inter.edit_original_message(
+                        content=f"⚠️ Could not update high staff listings due to missing permissions in channel <#{channel_id}>.\n\n"
+                        f"Please ensure I have the following permissions in this channel:\n"
+                        f"- View Channel\n"
+                        f"- Read Message History\n"
+                        f"- Send Messages\n"
+                        f"- Manage Messages (to clean up old listings)"
+                    )
+                return
 
             # Find the department info
             dept_info = next(
