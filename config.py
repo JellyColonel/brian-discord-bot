@@ -29,7 +29,9 @@ INFO_COLOR = disnake.Color.blue()
 
 # Bot feature flags - enable/disable features easily
 FEATURES = {
+    'FUN': os.getenv('FEATURE_FUN', 'True').lower() == 'true',
     'LOGGING': os.getenv('FEATURE_LOGGING', 'True').lower() == 'true',
+    'STAFF_LISTINGS': os.getenv('FEATURE_STAFF_LISTINGS', 'True').lower() == 'true',
     # Add more features as needed
 }
 

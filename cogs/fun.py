@@ -3,6 +3,10 @@
 import disnake
 from disnake.ext import commands
 import random
+import config
+import logging
+
+logger = logging.getLogger('discord_bot')
 
 
 class Fun(commands.Cog):
@@ -10,10 +14,24 @@ class Fun(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        logger.info(
+            f"Fun cog {'enabled' if config.FEATURES['FUN'] else 'disabled'}")
+
+    # Custom check that can be reused for all commands in this cog
+
+    async def fun_enabled(self, inter):
+        enabled = config.FEATURES['FUN']
+        if not enabled:
+            await inter.response.send_message("Fun commands are currently disabled.", ephemeral=True)
+        return enabled
 
     @commands.slash_command()
     async def coinflip(self, inter):
         """Flip a coin and see heads or tails!"""
+        # Check if feature is enabled using our custom check
+        if not await self.fun_enabled(inter):
+            return
+
         result = random.choice(["Heads 🪙", "Tails 🪙"])
 
         # Create embed directly
@@ -33,6 +51,10 @@ class Fun(commands.Cog):
             description="Number of sides on the die", default=6, ge=2, le=100)
     ):
         """Roll a die with a specified number of sides"""
+        # Check if feature is enabled using our custom check
+        if not await self.fun_enabled(inter):
+            return
+
         roll_result = random.randint(1, sides)
 
         # Create embed directly
@@ -52,6 +74,10 @@ class Fun(commands.Cog):
             description="Ask the Magic 8-Ball a yes or no question")
     ):
         """Consult the mystical Magic 8-Ball"""
+        # Check if feature is enabled using our custom check
+        if not await self.fun_enabled(inter):
+            return
+
         responses = [
             "It is certain.",
             "Without a doubt.",
@@ -90,6 +116,10 @@ class Fun(commands.Cog):
     @commands.slash_command()
     async def rps(self, inter):
         """Play Rock, Paper, Scissors against the bot"""
+        # Check if feature is enabled using our custom check
+        if not await self.fun_enabled(inter):
+            return
+
         # Custom view for Rock, Paper, Scissors
         class RPSView(disnake.ui.View):
             def __init__(self):

@@ -16,17 +16,50 @@ class StaffListings(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.update_staff_listings.start()
         self.staff_role_ids = set(config.ROLE_IDS.values())
         self.update_lock = asyncio.Lock()  # Lock to prevent simultaneous updates
         self.permission_errors = set()  # Store channels with permission errors
 
+        # Store enabled state for easy access throughout the class
+        self.enabled = config.FEATURES['STAFF_LISTINGS']
+
+        # Start the task only if enabled
+        if self.enabled:
+            self.update_staff_listings.start()
+            logger.info("Staff listings feature is enabled")
+        else:
+            logger.info("Staff listings feature is disabled")
+
     def cog_unload(self):
-        self.update_staff_listings.cancel()
+        if self.enabled and self.update_staff_listings.is_running():
+            self.update_staff_listings.cancel()
+
+    # Helper method to check if feature is enabled
+    async def staff_listings_enabled(self, inter, allow_admin_override=True):
+        """Check if staff listings are enabled, with optional admin override"""
+        if self.enabled:
+            return True
+
+        # Allow admins to still use commands even when feature is disabled
+        if allow_admin_override and (
+            inter.author.guild_permissions.administrator or
+            inter.author.id in config.OWNER_IDS
+        ):
+            return True
+
+        await inter.response.send_message(
+            "Staff listings feature is currently disabled.",
+            ephemeral=True
+        )
+        return False
 
     @tasks.loop(minutes=30)  # Update every 30 minutes
     async def update_staff_listings(self):
         """Automatically update staff listings"""
+        # Skip if feature is disabled
+        if not self.enabled:
+            return
+
         logger.info("Updating staff listings...")
 
         # Get the guild
@@ -543,10 +576,10 @@ class StaffListings(commands.Cog):
         description = ""
 
         if east_ls_manager:
-            description += f"### Заведующий East Los Santos Hospital\n{self.format_member_display(east_ls_manager)}\n\n"
+            description += f"### Заведующий East Los Santos Hospital\n{self.format_member_display(east_ls_manager)}\n"
 
         if sandy_manager:
-            description += f"### Заведующий Sandy Shores Medical Center\n{self.format_member_display(sandy_manager)}\n\n"
+            description += f"### Заведующий Sandy Shores Medical Center\n{self.format_member_display(sandy_manager)}\n"
 
         if bay_manager:
             description += f"### Заведующий The Bay Care Center\n{self.format_member_display(bay_manager)}\n"
@@ -607,7 +640,7 @@ class StaffListings(commands.Cog):
 
         description = ""
         for dept_name, member, role in dept_heads:
-            description += f"### Заведующий {dept_name}\n{self.format_member_display(member)}\n\n"
+            description += f"### Заведующий {dept_name}\n{self.format_member_display(member)}\n"
 
         embed = disnake.Embed(
             title="Заведующие отделениями",
@@ -654,7 +687,7 @@ class StaffListings(commands.Cog):
         description = ""
 
         if dept_head:
-            description += f"### Начальник {dept_short}\n{self.format_member_display(dept_head)}\n\n"
+            description += f"### Начальник {dept_short}\n{self.format_member_display(dept_head)}\n"
 
         if deputies:
             description += f"### Заместители начальника {dept_short}\n"
@@ -679,6 +712,10 @@ class StaffListings(commands.Cog):
         # Check for admin permissions
         if not inter.author.guild_permissions.administrator and inter.author.id not in config.OWNER_IDS:
             return await inter.response.send_message("You do not have permission to use this command.", ephemeral=True)
+
+        # Check if feature is enabled (with admin override)
+        if not await self.staff_listings_enabled(inter):
+            return
 
         await inter.response.defer(ephemeral=True)
 
@@ -728,6 +765,10 @@ class StaffListings(commands.Cog):
         # Check for admin permissions
         if not inter.author.guild_permissions.administrator and inter.author.id not in config.OWNER_IDS:
             return await inter.response.send_message("You do not have permission to use this command.", ephemeral=True)
+
+        # Check if feature is enabled (with admin override)
+        if not await self.staff_listings_enabled(inter):
+            return
 
         await inter.response.defer(ephemeral=True)
 
@@ -810,9 +851,40 @@ class StaffListings(commands.Cog):
                 f"Error manually updating department staff listing: {e}", exc_info=True)
             await inter.edit_original_message(content=f"Error updating department staff listing: {str(e)}")
 
+    # Add a new admin command to toggle the feature on/off
+    @commands.slash_command()
+    async def toggle_staff_listings(self, inter):
+        """Toggle staff listings feature on/off (Admin only)"""
+        # Check for admin permissions
+        if not inter.author.guild_permissions.administrator and inter.author.id not in config.OWNER_IDS:
+            return await inter.response.send_message("You do not have permission to use this command.", ephemeral=True)
+
+        await inter.response.defer(ephemeral=True)
+
+        # Toggle state
+        self.enabled = not self.enabled
+
+        # Start or stop the task as needed
+        if self.enabled and not self.update_staff_listings.is_running():
+            self.update_staff_listings.start()
+            await inter.edit_original_message(content="✅ Staff listings feature has been enabled.")
+            logger.info(f"Staff listings feature enabled by {inter.author}")
+        elif not self.enabled and self.update_staff_listings.is_running():
+            self.update_staff_listings.cancel()
+            await inter.edit_original_message(content="⚠️ Staff listings feature has been disabled.")
+            logger.info(f"Staff listings feature disabled by {inter.author}")
+        else:
+            status = "enabled" if self.enabled else "disabled"
+            await inter.edit_original_message(content=f"Staff listings feature is already {status}.")
+
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
         """Listen for role changes and update staff listings if needed"""
+        """Listen for role changes and update staff listings if needed"""
+        # Skip if feature is disabled
+        if not self.enabled:
+            return
+
         # Check if the role change is relevant to staff
         before_roles = set(role.id for role in before.roles)
         after_roles = set(role.id for role in after.roles)
@@ -831,6 +903,11 @@ class StaffListings(commands.Cog):
     @commands.Cog.listener()
     async def on_member_remove(self, member):
         """Listen for members leaving and update staff listings if needed"""
+        """Listen for members leaving and update staff listings if needed"""
+        # Skip if feature is disabled
+        if not self.enabled:
+            return
+
         # Check if the member had any staff roles
         member_roles = set(role.id for role in member.roles)
         if any(role_id in self.staff_role_ids for role_id in member_roles):
