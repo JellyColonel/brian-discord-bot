@@ -48,7 +48,7 @@ ROLE_IDS = {
     'DEPUTY_CHIEF_DOCTOR': int(os.getenv('ROLE_DEPUTY_CHIEF_DOCTOR', '0')),
     'HOSPITAL_MANAGER': int(os.getenv('ROLE_HOSPITAL_MANAGER', '0')),
     'MANAGEMENT_STAFF': int(os.getenv('ROLE_MANAGEMENT_STAFF', '0')),
-    'HIGH_STAFF': int(os.getenv('ROLE_HIGH_STAFF', '0')),  # Add this line
+    'HIGH_STAFF': int(os.getenv('ROLE_HIGH_STAFF', '0')),
     'HAD_DEPARTMENT': int(os.getenv('ROLE_HAD_DEPARTMENT', '0')),
     'PM_DEPARTMENT': int(os.getenv('ROLE_PM_DEPARTMENT', '0')),
     'DI_DEPARTMENT': int(os.getenv('ROLE_DI_DEPARTMENT', '0')),
@@ -58,7 +58,7 @@ ROLE_IDS = {
 
 # Hospital managers' IDs (hardcoded)
 HOSPITAL_MANAGERS = {
-    'EAST_LOS_SANTOS': 741968124529606657,  # Anastasia Heavenly
+    'EAST_LOS_SANTOS': 854884520427520030,  # Kitsune Blair
     'SANDY_SHORES': 421692991493636096,     # Ben Cole
     'THE_BAY_CARE': 483906743567646722,     # Yaya Revo
 }

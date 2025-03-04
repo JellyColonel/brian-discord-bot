@@ -878,31 +878,7 @@ class StaffListings(commands.Cog):
             await inter.edit_original_message(content=f"Staff listings feature is already {status}.")
 
     @commands.Cog.listener()
-    async def on_member_update(self, before, after):
-        """Listen for role changes and update staff listings if needed"""
-        """Listen for role changes and update staff listings if needed"""
-        # Skip if feature is disabled
-        if not self.enabled:
-            return
-
-        # Check if the role change is relevant to staff
-        before_roles = set(role.id for role in before.roles)
-        after_roles = set(role.id for role in after.roles)
-
-        # If roles changed, check if any of them are staff roles
-        if before_roles != after_roles:
-            changed_roles = before_roles.symmetric_difference(after_roles)
-            if any(role_id in self.staff_role_ids for role_id in changed_roles):
-                # Only update if we're not already updating
-                if not self.update_lock.locked():
-                    async with self.update_lock:
-                        logger.info(
-                            f"Staff role change detected for {after.display_name}, updating listings")
-                        await self.update_listings_now()
-
-    @commands.Cog.listener()
     async def on_member_remove(self, member):
-        """Listen for members leaving and update staff listings if needed"""
         """Listen for members leaving and update staff listings if needed"""
         # Skip if feature is disabled
         if not self.enabled:
