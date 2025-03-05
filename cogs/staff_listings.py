@@ -6,7 +6,7 @@ import logging
 import config
 import re
 import asyncio
-import datetime
+from utils.helper import clear_channel
 
 logger = logging.getLogger('discord_bot')
 
@@ -128,7 +128,7 @@ class StaffListings(commands.Cog):
 
         try:
             # Clear the channel
-            await self.clear_channel(channel)
+            await clear_channel(channel)
 
             # Create and send all embeds
             await self.send_high_staff_embeds(channel, guild)
@@ -160,7 +160,7 @@ class StaffListings(commands.Cog):
 
             try:
                 # Clear the channel
-                await self.clear_channel(channel)
+                await clear_channel(channel)
 
                 # Create and send department-specific embeds
                 await self.send_department_specific_embeds(channel, guild, dept)
@@ -372,50 +372,6 @@ class StaffListings(commands.Cog):
     async def before_update_staff_listings(self):
         """Wait for the bot to be ready before starting the task"""
         await self.bot.wait_until_ready()
-
-    async def clear_channel(self, channel):
-        """Clear all messages in the staff listings channel"""
-        try:
-            # First try bulk delete for messages less than 14 days old
-            messages = await channel.history(limit=100).flatten()
-            if not messages:
-                return
-
-            # Filter messages by age
-            now = datetime.datetime.now(datetime.timezone.utc)
-            recent_messages = [msg for msg in messages if (
-                now - msg.created_at).days < 14]
-
-            if recent_messages:
-                await channel.purge(limit=len(recent_messages))
-
-            # If there are older messages, delete them one by one
-            older_messages = [msg for msg in messages if (
-                now - msg.created_at).days >= 14]
-            for message in older_messages:
-                await message.delete()
-                await asyncio.sleep(0.5)  # Delay to avoid rate limits
-
-        except disnake.Forbidden:
-            # Re-raise the exception to be caught by the calling method
-            raise
-        except Exception as e:
-            logger.error(
-                f"Error clearing staff listings channel: {e}", exc_info=True)
-            raise
-
-    def extract_id(self, member: disnake.Member) -> str:
-        """Extract employee ID from member display name"""
-        # Pattern: Name | ID
-        pattern = re.compile(r'.*\|\s*(\d+)')
-
-        # Try to extract from display name
-        match = pattern.match(member.display_name)
-        if match:
-            return match.group(1)
-
-        # If not found, return empty string
-        return ""
 
     def format_member_display(self, member: disnake.Member) -> str:
         """Format member display with mention, name and ID, removing the PREFIX"""
@@ -789,7 +745,7 @@ class StaffListings(commands.Cog):
 
                 try:
                     # Clear the channel
-                    await self.clear_channel(channel)
+                    await clear_channel(channel)
 
                     # Send high staff embeds
                     await self.send_high_staff_embeds(channel, guild)
@@ -827,7 +783,7 @@ class StaffListings(commands.Cog):
 
             try:
                 # Clear the channel
-                await self.clear_channel(channel)
+                await clear_channel(channel)
 
                 # Send department-specific embeds
                 await self.send_department_specific_embeds(channel, guild, dept_info)
