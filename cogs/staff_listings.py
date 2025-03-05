@@ -8,6 +8,13 @@ import re
 import asyncio
 from utils.helper import clear_channel
 
+from utils.staff_utils import (
+    format_member_display,
+    find_members_with_role_pattern,
+    find_single_member_with_role_pattern,
+    get_dept_for_channel as utils_get_dept_for_channel
+)
+
 logger = logging.getLogger('discord_bot')
 
 
@@ -176,8 +183,6 @@ class StaffListings(commands.Cog):
 
     async def send_department_specific_embeds(self, channel, guild, dept):
         """Send the department-specific embeds to the channel"""
-        dept_short = dept['short']
-        dept_full = dept['full']
 
         # Embed 1: Department Curator (Заведующий)
         curator_embed = await self.create_department_curator_embed(guild, dept)
@@ -210,15 +215,7 @@ class StaffListings(commands.Cog):
 
         # Find department curator with "Заведующий {dept_short}" role
         pattern = re.compile(f"Заведующий\\s+{dept_short}")
-        dept_curator = None
-
-        for member in guild.members:
-            for role in member.roles:
-                if pattern.match(role.name):
-                    dept_curator = member
-                    break
-            if dept_curator:
-                break
+        dept_curator = find_single_member_with_role_pattern(guild, pattern)
 
         if not dept_curator:
             logger.warning(f"No department curator found for {dept_short}")
@@ -232,7 +229,7 @@ class StaffListings(commands.Cog):
 
         embed = disnake.Embed(
             title=f"Состав {dept_full}",
-            description=f"### Заведующий {dept_short}\n{self.format_member_display(dept_curator)}",
+            description=f"### Заведующий {dept_short}\n{format_member_display(dept_curator)}",
             color=embed_color
         )
 
@@ -244,15 +241,7 @@ class StaffListings(commands.Cog):
 
         # Find department head with "Начальник {dept_short}" role
         pattern = re.compile(f"Начальник\\s+{dept_short}")
-        head = None
-
-        for member in guild.members:
-            for role in member.roles:
-                if pattern.match(role.name):
-                    head = member
-                    break
-            if head:
-                break
+        head = find_single_member_with_role_pattern(guild, pattern)
 
         if not head:
             logger.warning(f"No department head found for {dept_short}")
@@ -266,7 +255,7 @@ class StaffListings(commands.Cog):
 
         embed = disnake.Embed(
             title=f"Начальник {dept_short}",
-            description=f"{self.format_member_display(head)}",
+            description=f"{format_member_display(head)}",
             color=embed_color
         )
 
@@ -278,16 +267,7 @@ class StaffListings(commands.Cog):
 
         # Find deputies with "Зам. Начальника {dept_short}" role
         pattern = re.compile(f"Зам\\. Начальника\\s+{dept_short}")
-        deputies = []
-
-        for member in guild.members:
-            for role in member.roles:
-                if pattern.match(role.name):
-                    deputies.append(member)
-                    break
-
-        # Sort alphabetically
-        deputies.sort(key=lambda m: m.display_name.lower())
+        deputies = find_members_with_role_pattern(guild, pattern)
 
         if not deputies:
             logger.warning(f"No deputy heads found for {dept_short}")
@@ -295,7 +275,7 @@ class StaffListings(commands.Cog):
 
         description = ""
         for i, deputy in enumerate(deputies, start=1):
-            description += f"{i}. {self.format_member_display(deputy)}\n"
+            description += f"{i}. {format_member_display(deputy)}\n"
 
         # Get high staff role for color (same as department head)
         high_staff_role_id = config.ROLE_IDS.get('HIGH_STAFF')
@@ -332,22 +312,19 @@ class StaffListings(commands.Cog):
         head_pattern = re.compile(f"Начальник\\s+{dept_short}")
         deputy_pattern = re.compile(f"Зам\\. Начальника\\s+{dept_short}")
 
+        curators = find_members_with_role_pattern(guild, curator_pattern)
+        heads = find_members_with_role_pattern(guild, head_pattern)
+        deputies = find_members_with_role_pattern(guild, deputy_pattern)
+
+        # Combine all leadership members into a set for efficient lookup
+        leadership_members = set()
+        leadership_members.update(curators)
+        leadership_members.update(heads)
+        leadership_members.update(deputies)
+
         # Find all members with department role but without leadership roles
-        mid_staff = []
-
-        for member in dept_role.members:
-            # Check if member has any leadership role
-            is_leader = False
-            for role in member.roles:
-                if (curator_pattern.match(role.name) or
-                    head_pattern.match(role.name) or
-                        deputy_pattern.match(role.name)):
-                    is_leader = True
-                    break
-
-            # If not a leader, add to mid-staff
-            if not is_leader:
-                mid_staff.append(member)
+        mid_staff = [
+            member for member in dept_role.members if member not in leadership_members]
 
         # Sort alphabetically
         mid_staff.sort(key=lambda m: m.display_name.lower())
@@ -358,7 +335,7 @@ class StaffListings(commands.Cog):
 
         description = ""
         for i, member in enumerate(mid_staff, start=1):
-            description += f"{i}. {self.format_member_display(member)}\n"
+            description += f"{i}. {format_member_display(member)}\n"
 
         embed = disnake.Embed(
             title=f"Средний состав {dept_short}",
@@ -372,50 +349,6 @@ class StaffListings(commands.Cog):
     async def before_update_staff_listings(self):
         """Wait for the bot to be ready before starting the task"""
         await self.bot.wait_until_ready()
-
-    def format_member_display(self, member: disnake.Member) -> str:
-        """Format member display with mention, name and ID, removing the PREFIX"""
-        display_name = member.display_name
-
-        # First, handle the [PREFIX] [Name] [ID] format
-        bracket_pattern = re.compile(
-            r'^\s*\[[^\]]+\]\s*(\[[^\]]+\]\s*\[[^\]]+\])$')
-        bracket_match = bracket_pattern.match(display_name)
-        if bracket_match:
-            clean_name = bracket_match.group(1).strip()
-            return f"{member.mention} - {clean_name}"
-
-        # Handle PREFIX | Name | ID format (or with / as separator)
-        # Find the first separator
-        separators = ['|', '/', '[']
-        first_sep_idx = -1
-        for sep in separators:
-            idx = display_name.find(sep)
-            if idx != -1 and (first_sep_idx == -1 or idx < first_sep_idx):
-                first_sep_idx = idx
-
-        # If we found a separator, try to extract the name and ID part
-        if first_sep_idx != -1:
-            # Everything after the first separator
-            remaining = display_name[first_sep_idx:].strip()
-
-            # Remove the separator itself if it's at the beginning
-            if remaining and remaining[0] in '|/[':
-                remaining = remaining[1:].strip()
-
-            # Check if there are more separators in the remaining text
-            has_more_separators = False
-            for sep in separators:
-                if sep in remaining:
-                    has_more_separators = True
-                    break
-
-            # If there are more separators, this is likely the Name | ID part
-            if has_more_separators:
-                return f"{member.mention} - {remaining}"
-
-        # Fallback if patterns don't match
-        return f"{member.mention} - {display_name}"
 
     async def send_high_staff_embeds(self, channel, guild):
         """Send embeds for high staff positions"""
@@ -471,7 +404,7 @@ class StaffListings(commands.Cog):
 
         embed = disnake.Embed(
             title="Старший и руководящий состав",
-            description=f"### Главный врач\n{self.format_member_display(chief)}",
+            description=f"### Главный врач\n{format_member_display(chief)}",
             color=role.color
         )
 
@@ -499,7 +432,7 @@ class StaffListings(commands.Cog):
         # Create numbered list
         description = ""
         for i, deputy in enumerate(deputies, start=1):
-            description += f"{i}. {self.format_member_display(deputy)}\n"
+            description += f"{i}. {format_member_display(deputy)}\n"
 
         embed = disnake.Embed(
             title="Заместители Главного Врача",
@@ -532,13 +465,13 @@ class StaffListings(commands.Cog):
         description = ""
 
         if east_ls_manager:
-            description += f"### Заведующий East Los Santos Hospital\n{self.format_member_display(east_ls_manager)}\n"
+            description += f"### Заведующий East Los Santos Hospital\n{format_member_display(east_ls_manager)}\n"
 
         if sandy_manager:
-            description += f"### Заведующий Sandy Shores Medical Center\n{self.format_member_display(sandy_manager)}\n"
+            description += f"### Заведующий Sandy Shores Medical Center\n{format_member_display(sandy_manager)}\n"
 
         if bay_manager:
-            description += f"### Заведующий The Bay Care Center\n{self.format_member_display(bay_manager)}\n"
+            description += f"### Заведующий The Bay Care Center\n{format_member_display(bay_manager)}\n"
 
         if not description:
             logger.warning("No hospital managers found")
@@ -596,7 +529,7 @@ class StaffListings(commands.Cog):
 
         description = ""
         for dept_name, member, role in dept_heads:
-            description += f"### Заведующий {dept_name}\n{self.format_member_display(member)}\n"
+            description += f"### Заведующий {dept_name}\n{format_member_display(member)}\n"
 
         embed = disnake.Embed(
             title="Заведующие отделениями",
@@ -643,12 +576,12 @@ class StaffListings(commands.Cog):
         description = ""
 
         if dept_head:
-            description += f"### Начальник {dept_short}\n{self.format_member_display(dept_head)}\n"
+            description += f"### Начальник {dept_short}\n{format_member_display(dept_head)}\n"
 
         if deputies:
             description += f"### Заместители начальника {dept_short}\n"
             for i, deputy in enumerate(deputies, start=1):
-                description += f"{i}. {self.format_member_display(deputy)}\n"
+                description += f"{i}. {format_member_display(deputy)}\n"
 
         if not description:
             logger.warning(f"No staff found for department {dept_short}")
@@ -910,14 +843,11 @@ class StaffListings(commands.Cog):
 # Helper function to get department name for a channel ID
 def get_dept_for_channel(channel_id):
     """Get the department name for a channel ID"""
-    if channel_id == config.HIGH_STAFF_LISTING_CHANNEL_ID:
-        return "HIGH STAFF"
-
-    for dept in config.DEPARTMENTS:
-        if dept.get('channel_id') == channel_id:
-            return dept.get('short', 'UNKNOWN')
-
-    return "UNKNOWN"
+    return utils_get_dept_for_channel(
+        channel_id,
+        config.HIGH_STAFF_LISTING_CHANNEL_ID,
+        config.DEPARTMENTS
+    )
 
 
 def setup(bot):
