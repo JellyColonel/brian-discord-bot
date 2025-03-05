@@ -76,7 +76,8 @@ def main():
         embed_links=True,
         attach_files=True,
         read_message_history=True,
-        add_reactions=True
+        add_reactions=True,
+        manage_roles=True
     )
 
     # Create a bot instance with command prefix and intents

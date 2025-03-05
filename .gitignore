@@ -35,6 +35,12 @@ logs/
 *.swp
 *.swo
 
+# Database files
+data/bot.db
+*.db
+*.sqlite
+*.sqlite3
+
 # Discord bot specific
 config.json
 token.txt
